@@ -234,6 +234,7 @@ const CARD_MAP = {};
 ALL_CARDS.forEach(c => { CARD_MAP[c.id] = c; });
 
 function getCard(id) { return CARD_MAP[id]; }
+function getCards(ids) { return ids.map(id => CARD_MAP[id]).filter(Boolean); }
 function cloneCard(card) { return card ? JSON.parse(JSON.stringify(card)) : null; }
 function cloneCards(cards) { return cards.map(c => cloneCard(c)); }
 

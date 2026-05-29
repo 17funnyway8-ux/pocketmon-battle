@@ -3,7 +3,7 @@ const { GamePhase, TurnPhase, GameAction, CONFIG, CardType } = require('../../sh
 const { GameStateMachine } = require('./GameStateMachine');
 const { getValidator } = require('./action-validators/index');
 const { calculateDamage } = require('./damage-calculator');
-const { cloneCard, cloneCards, getCard, getCards } = require('../data/cards');
+const { cloneCard, cloneCards, getCard, getCards, PREBUILT_DECKS } = require('../data/cards');
 
 class GameSession {
   constructor(room) {
@@ -35,7 +35,10 @@ class GameSession {
 
     // 初始化每个玩家的游戏状态
     for (const p of players) {
-      const deckCards = cloneCards(getCards(p.deckId));
+      // 查牌组定义，获取卡牌ID列表
+      const deckDef = PREBUILT_DECKS.find(d => d.id === p.deckId);
+      const deckCardIds = deckDef ? deckDef.cards : [];
+      const deckCards = cloneCards(getCards(deckCardIds));
       this.state.players[p.id] = {
         playerId: p.id,
         playerName: p.name,
