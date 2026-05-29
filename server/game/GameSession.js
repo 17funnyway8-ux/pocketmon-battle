@@ -148,33 +148,47 @@ class GameSession {
   // 游戏动作处理
   // ============================================================
   handleAction(playerId, action, payload) {
-    const player = this.state.players[playerId];
-    if (!player) return { error: '玩家不存在' };
+    try {
+      const player = this.state.players[playerId];
+      if (!player) return { error: '玩家不存在' };
 
-    // 检查是否该玩家的回合
-    if (this.state.currentPlayerId !== playerId) {
-      return { error: '不是你的回合' };
+      // 检查是否该玩家的回合
+      if (this.state.currentPlayerId !== playerId) {
+        return { error: '不是你的回合' };
+      }
+
+      if (this.state.phase !== GamePhase.PLAYER_TURN) {
+        return { error: '当前不是操作阶段' };
+      }
+
+      // 攻击动作：从 MAIN 自动转入 ATTACK 阶段
+      // （否则 enterAttack() 从未被调用 → 攻击永不可用）
+      if (action === 'use_attack' && this.state.turnPhase === TurnPhase.MAIN) {
+        this.machine.enterAttack();
+        this.state.turnPhase = TurnPhase.ATTACK;
+      }
+
+      // 获取并执行验证器
+      const validator = getValidator(action);
+      if (!validator) return { error: `未知动作: ${action}` };
+
+      const validation = validator(this.state, playerId, payload);
+      if (!validation.valid) return { error: validation.reason };
+
+      // 执行动作
+      return this._executeAction(playerId, action, payload, validation);
+    } catch (err) {
+      console.error(`  动作执行崩溃: ${action}`, err);
+      return { error: '服务器内部错误: ' + err.message };
     }
-
-    if (this.state.phase !== GamePhase.PLAYER_TURN) {
-      return { error: '当前不是操作阶段' };
-    }
-
-    // 获取并执行验证器
-    const validator = getValidator(action);
-    if (!validator) return { error: `未知动作: ${action}` };
-
-    const validation = validator(this.state, playerId, payload);
-    if (!validation.valid) return { error: validation.reason };
-
-    // 执行动作
-    return this._executeAction(playerId, action, payload, validation);
   }
 
   _executeAction(playerId, action, payload, validation) {
-    const player = this.state.players[playerId];
+    try {
+      const player = this.state.players[playerId];
+      if (!player) return { error: '玩家状态异常' };
 
-    switch (action) {
+      switch (action) {
       case 'play_pokemon': {
         const card = player.hand.find(c => c.id === payload.cardId);
         player.hand = player.hand.filter(c => c.id !== payload.cardId);
@@ -372,6 +386,10 @@ class GameSession {
     this.state.phase = this.machine.phase;
 
     return { success: true };
+    } catch (err) {
+      console.error(`  动作执行失败:`, err);
+      return { error: '执行异常: ' + err.message };
+    }
   }
 
   _handleKnockout(attackerId, defender) {
@@ -473,7 +491,13 @@ class GameSession {
   // 投降
   // ============================================================
   forfeit(playerId) {
-    const winner = this._getOpponent(playerId);
+    const opponent = this._getOpponent(playerId);
+    if (!opponent) {
+      this.state.phase = GamePhase.GAME_OVER;
+      this._addLog('forfeit_no_opponent', { playerId });
+      return { winner: playerId, reason: '对手已离开，自动获胜' };
+    }
+    const winner = opponent;
     this.state.phase = GamePhase.GAME_OVER;
     this._addLog('forfeit', { playerId, winnerId: winner.playerId });
     return { winner: winner.playerId, reason: '对方投降了' };
@@ -544,7 +568,11 @@ class GameSession {
   _sendToPlayer(playerId, type, payload) {
     const player = this.room.getPlayer(playerId);
     if (player && player.ws && player.ws.readyState === 1) {
-      player.ws.send(JSON.stringify({ type, payload }));
+      try {
+        player.ws.send(JSON.stringify({ type, payload }));
+      } catch (e) {
+        console.error(`  发送消息失败 [${type}] 给 ${playerId}: ${e.message}`);
+      }
     }
   }
 

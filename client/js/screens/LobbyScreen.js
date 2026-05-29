@@ -150,12 +150,14 @@ const LobbyScreen = {
     room.players.forEach(p => {
       const el = document.createElement('div');
       el.className = 'room-player';
-      el.innerHTML = `
-        <div class="p-name">${p.name || '训练师'}</div>
-        <div class="p-status ${p.isReady ? 'p-ready' : 'p-not-ready'}">
-          ${p.isReady ? '✅ 已准备' : '⏳ 准备中'}
-        </div>
-      `;
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'p-name';
+      nameDiv.textContent = p.name || '训练师';
+      const statusDiv = document.createElement('div');
+      statusDiv.className = `p-status ${p.isReady ? 'p-ready' : 'p-not-ready'}`;
+      statusDiv.textContent = p.isReady ? '✅ 已准备' : '⏳ 准备中';
+      el.appendChild(nameDiv);
+      el.appendChild(statusDiv);
       container.appendChild(el);
     });
 
