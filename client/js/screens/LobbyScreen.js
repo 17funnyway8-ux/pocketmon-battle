@@ -105,13 +105,40 @@ const LobbyScreen = {
 
     document.getElementById('btn-ready').onclick = () => {
       if (!GameState.selectedDeckId) return;
+      // 先选牌
       WS.send('select_deck', { deckId: GameState.selectedDeckId });
-      // 稍微延迟再发送 ready
+      document.getElementById('btn-ready').disabled = true;
+      document.getElementById('btn-ready').textContent = '选牌中...';
+      // 等待 room_updated 确认选牌成功后再发 ready
+      // 这里通过全局回调来触发
+    };
+
+    // 选牌确认回调 - 在 app.js 中注册
+    window._onDeckConfirmed = () => {
+      WS.send('player_ready', {});
+      const btn = document.getElementById('btn-ready');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '✅ 已准备';
+      }
+    };
+
+    // 强制开始按钮
+    document.getElementById('btn-force-start').onclick = () => {
+      // 先确保自己选了牌
+      if (GameState.selectedDeckId) {
+        WS.send('select_deck', { deckId: GameState.selectedDeckId });
+      }
+      // 直接发 ready 并尝试强制开始
       setTimeout(() => {
         WS.send('player_ready', {});
-      }, 200);
-      document.getElementById('btn-ready').disabled = true;
-      document.getElementById('btn-ready').textContent = '已准备';
+        // 再发一次确保
+        setTimeout(() => {
+          WS.send('player_ready', {});
+        }, 500);
+      }, 300);
+      document.getElementById('btn-force-start').disabled = true;
+      document.getElementById('btn-force-start').textContent = '正在强制开始...';
     };
   },
 
@@ -138,6 +165,14 @@ const LobbyScreen = {
       el.className = 'room-player waiting';
       el.innerHTML = `<div class="p-name">等待加入...</div>`;
       container.appendChild(el);
+    }
+
+    // 如果两人都在房间，显示强制开始按钮
+    const forceBtn = document.getElementById('btn-force-start');
+    if (room.players && room.players.length === 2) {
+      forceBtn.style.display = 'block';
+    } else {
+      forceBtn.style.display = 'none';
     }
   }
 };

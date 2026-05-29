@@ -267,16 +267,30 @@ function handlePlayerReady(session) {
   if (!room) return send(session.ws, S2C.ERROR, { code: 'NO_ROOM', message: '不在房间中' });
 
   const player = room.getPlayer(session.playerId);
-  if (!player || !player.deckId) {
-    return send(session.ws, S2C.ERROR, { code: 'NO_DECK', message: '请先选择牌组' });
+  if (!player) return;
+
+  // 如果没有选牌，静默处理（前端会重试）
+  if (!player.deckId) {
+    console.log(`  ${session.name} 尝试准备但未选牌，忽略`);
+    return;
   }
 
-  player.isReady = !player.isReady;
-  room.broadcast(S2C.ROOM_UPDATED, room.toJSON());
+  // 重复点击准备不会切换回未准备状态（防止 toggle 误触）
+  if (!player.isReady) {
+    player.isReady = true;
+    console.log(`  ${session.name} 已准备`);
+    room.broadcast(S2C.ROOM_UPDATED, room.toJSON());
+  }
 
   // 双方都准备 -> 开始游戏
   if (room.canStart()) {
-    startGame(room);
+    console.log(`  双方已准备，开始游戏!`);
+    try {
+      startGame(room);
+    } catch (err) {
+      console.error(`  开始游戏失败:`, err);
+      send(session.ws, S2C.ERROR, { code: 'START_FAILED', message: '开始游戏失败: ' + err.message });
+    }
   }
 }
 

@@ -70,6 +70,16 @@
     console.log('[房间] 更新:', payload);
     if (payload.players) {
       LobbyScreen.updateRoomPlayers(payload);
+      // 检测选牌确认：自己被列在 players 中且 deckId 不为空
+      const myPlayer = payload.players.find(p => p.id === GameState.playerId);
+      if (myPlayer && myPlayer.deckId) {
+        // 如果还在等待选牌确认，触发 ready
+        if (typeof window._onDeckConfirmed === 'function' &&
+            document.getElementById('screen-deck-select').classList.contains('active')) {
+          window._onDeckConfirmed();
+          window._onDeckConfirmed = null; // 只触发一次
+        }
+      }
     }
   });
 
