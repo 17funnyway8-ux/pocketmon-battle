@@ -43,7 +43,9 @@ const server = http.createServer((req, res) => {
   }
 
   // 静态文件服务
-  let filePath = path.join(CLIENT_DIR, req.url === '/' ? 'index.html' : req.url);
+  // 剥离查询参数（如 ?v=1.0.4），防止 path.extname 误判扩展名
+  const urlPath = req.url.split('?')[0];
+  let filePath = path.join(CLIENT_DIR, urlPath === '/' ? 'index.html' : urlPath);
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
