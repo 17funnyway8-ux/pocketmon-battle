@@ -231,39 +231,44 @@ const BattleScreen = {
   },
 
   // ============================================================
-  // 操作绑定
+  // 操作绑定（使用事件委托，避免 board.innerHTML 重建后丢失监听器）
   // ============================================================
   _bindEvents() {
-    // 结束回合
-    document.getElementById('btn-end-turn').addEventListener('click', () => {
-      WS.send('game_action', { action: 'end_turn', payload: {} });
-    });
+    // ★ 关键：board.innerHTML 会被 setup 阶段覆盖，
+    // #btn-end-turn 会随 board 重建而丢失直接绑定的事件监听器。
+    // 使用事件委托到 #battle-container（不受 board 重建影响）来兜底。
+    const battleContainer = document.getElementById('battle-container');
+    if (battleContainer) {
+      battleContainer.addEventListener('click', (e) => {
+        if (e.target.matches('#btn-end-turn') || e.target.closest('#btn-end-turn')) {
+          WS.send('game_action', { action: 'end_turn', payload: {} });
+        }
+      });
+    }
 
-    // 投降
+    // 投降（在 battle-header 中，不受 board 重建影响）
     document.getElementById('btn-forfeit').addEventListener('click', () => {
       if (confirm('确定要投降吗？')) {
         WS.send('forfeit', {});
       }
     });
 
-    // 卡牌点击事件
+    // 卡牌点击事件（CustomEvent，冒泡到 document）
     document.addEventListener('card-click', (e) => {
       this._handleCardClick(e.detail.card, e.detail.element);
     });
 
-    // 取消攻击
+    // 弹窗按钮（在 modal 中，不受 board 重建影响）
     document.getElementById('btn-cancel-attack').addEventListener('click', () => {
       document.getElementById('attack-modal').classList.add('hidden');
       this.pendingAction = null;
     });
 
-    // 取消后备选择
     document.getElementById('btn-cancel-bench').addEventListener('click', () => {
       document.getElementById('bench-select-modal').classList.add('hidden');
       this.pendingAction = null;
     });
 
-    // 返回大厅
     document.getElementById('btn-back-lobby').addEventListener('click', () => {
       GameState.reset();
       document.getElementById('gameover-modal').classList.add('hidden');

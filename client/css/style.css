@@ -288,8 +288,42 @@ html, body {
 
 .board-section {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* 对手区域（上方，无旋转） */
+.board-opponent {
+  border-bottom: 1px dashed rgba(255,255,255,0.12);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  order: 0;
+}
+.board-opponent .player-info { width: 100%; order: 0; }
+.board-opponent .board-hand { order: 1; }
+.board-opponent .board-active { order: 2; flex: 1; max-width: 200px; }
+.board-opponent .board-bench { order: 3; }
+
+/* 己方区域（下方） */
+.board-player {
+  border-top: 1px dashed rgba(255,255,255,0.12);
+  padding-top: 8px;
+  margin-top: 4px;
+  order: 2;
+}
+.board-player .player-info { width: 100%; order: 3; }
+.board-player .board-bench { order: 0; }
+.board-player .board-active { order: 1; flex: 1; max-width: 200px; }
+.board-player .board-hand { order: 2; }
+
+/* 中间区域 */
+.board-middle {
+  order: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
 }
 
 .player-info {
@@ -322,21 +356,18 @@ html, body {
   padding: 2px;
 }
 
-/* 对手区域上下翻转 */
+/* 对手区域（上方，无旋转） */
 .board-opponent {
-  transform: rotate(180deg);
-}
-.board-opponent .board-hand {
-  flex-direction: row-reverse;
+  border-bottom: 1px dashed rgba(255,255,255,0.1);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
 }
 .board-opponent .zone-label {
-  transform: rotate(180deg);
+  color: #777;
 }
-.board-opponent .player-info {
-  flex-direction: row-reverse;
-}
-.board-opponent .board-bench {
-  flex-direction: row-reverse;
+/* 对手手牌显示为背面 */
+.board-opponent .board-hand .card--facedown {
+  opacity: 0.85;
 }
 
 /* 对战区域中间 */
