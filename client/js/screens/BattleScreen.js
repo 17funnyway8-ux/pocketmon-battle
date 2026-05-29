@@ -8,16 +8,26 @@ const BattleScreen = {
   _setupPlacedCard: null,    // 本地已放置的宝可梦卡（乐观记录）
   _hasConfirmedSetup: false, // 玩家是否已点击确认（不可逆）
   _setupRendered: false,     // 选牌界面是否已渲染过
+  _boardTemplate: '',        // 原始对战棋盘 HTML（setup 覆盖后用于恢复）
 
   init() {
     BoardRenderer.init();
     AnimationManager.init();
     this._bindEvents();
+    // 捕获原始棋盘模板（只做一次）
+    const board = document.getElementById('board');
+    if (board && !this._boardTemplate) {
+      this._boardTemplate = board.innerHTML;
+    }
   },
 
   show() {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-battle').classList.add('active');
+    // 确保 board 恢复为原始结构（防止之前 setup 残留）
+    if (this._boardTemplate) {
+      document.getElementById('board').innerHTML = this._boardTemplate;
+    }
     this.selectedCard = null;
     this.selectedCardEl = null;
     this.pendingAction = null;
@@ -32,6 +42,11 @@ const BattleScreen = {
 
     // 双方都确认后游戏正式开始
     if (payload.gameStarted) {
+      // ★ 关键修复：_renderSetup / _renderSetupWaiting 替换了 board.innerHTML，
+      // 导致 BoardRenderer 缓存的 DOM 引用（player-hand等）变成游离节点。
+      // 必须先恢复原始棋盘结构，然后重新初始化 BoardRenderer 引用。
+      document.getElementById('board').innerHTML = this._boardTemplate;
+      BoardRenderer.init();
       GameState.isSetup = false;
       BoardRenderer.render(GameState);
       this._updateActions();
