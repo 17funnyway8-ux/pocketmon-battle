@@ -5,6 +5,7 @@ const BattleScreen = {
   pendingAction: null,    // 待处理的 action 类型
   lastLogCount: 0,
   energyAttached: false,
+  _setupPlacedCard: null, // 本地已放置的宝可梦卡（乐观记录）
 
   init() {
     BoardRenderer.init();
@@ -37,11 +38,26 @@ const BattleScreen = {
     // 设置阶段
     if (payload.isSetup || GameState.phase === 'setup') {
       GameState.isSetup = true;
-      if (payload.isSetup) {
-        this._renderSetup();
-      } else {
-        this._updateSetupOpponentStatus();
+
+      const me = GameState.me;
+      const opponent = GameState.opponent;
+      const wasPlaced = !!this._setupPlacedCard;  // 本地是否已确认过
+
+      // 己方放置后：渲染等待界面（含对手状态）
+      if (me && me.activePokemon) {
+        this._setupPlacedCard = me.activePokemon.card;
+        this._renderSetupWaiting();
+        return;
       }
+
+      // 首次进入：渲染选牌界面
+      if (payload.isSetup || !wasPlaced) {
+        this._renderSetup();
+        return;
+      }
+
+      // 还在选牌中：只更新对手状态指示器
+      this._updateSetupOpponentStatus();
       return;
     }
 
@@ -57,69 +73,28 @@ const BattleScreen = {
     this._clearSelection();
   },
 
-  // 更新设置阶段的对手状态（只更新指示器，不破坏当前选牌状态）
+  // 更新设置阶段的对手状态（只更新指示器文字，不重新渲染DOM）
   _updateSetupOpponentStatus() {
     const opponent = GameState.opponent;
-    const me = GameState.me;
-    if (!opponent || !me) return;
-
+    if (!opponent) return;
     const oppoPlaced = opponent.activePokemon !== null;
-    const mePlaced = me.activePokemon !== null;
-
     const statusEl = document.getElementById('opponent-setup-status');
     if (statusEl) {
       statusEl.textContent = oppoPlaced ? '✅ 对手已放置出战宝可梦' : '⏳ 等待对手选择...';
     }
-
-    if (mePlaced && !document.getElementById('setup-confirmed-pokemon')) {
-      this._renderSetup();
-    }
   },
 
   // ============================================================
-  // 设置阶段
+  // 设置阶段：选牌界面
   // ============================================================
   _renderSetup() {
     const board = document.getElementById('board');
     const me = GameState.me;
     const opponent = GameState.opponent;
     const oppoPlaced = opponent && opponent.activePokemon !== null;
-    const mePlaced = me && me.activePokemon !== null;
 
     document.getElementById('battle-turn-info').textContent = '设置阶段';
 
-    if (mePlaced && oppoPlaced) {
-      // 双方都放好了，但游戏开始消息还在路上
-      board.innerHTML = `<div class="board-section" style="flex:1;display:flex;align-items:center;justify-content:center;">
-        <div style="text-align:center;"><h3>🎮 即将开始...</h3></div>
-      </div>`;
-      return;
-    }
-
-    if (mePlaced) {
-      // 己方已放好，等待对手
-      board.innerHTML = `
-        <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
-          <div style="text-align:center;">
-            <h3 style="margin-bottom:8px;">✅ 已放置出战宝可梦</h3>
-            <p style="color:var(--text-dim);">等待对手选择...</p>
-          </div>
-          <div id="setup-confirmed-pokemon" style="display:flex;justify-content:center;"></div>
-          <div class="opponent-status" style="padding:8px 16px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:0.9rem;">
-            ${oppoPlaced ? '✅ 对手已选择出战宝可梦' : '⏳ 对手尚未选择'}
-          </div>
-        </div>
-      `;
-      const container = document.getElementById('setup-confirmed-pokemon');
-      if (container) {
-        const el = CardRenderer.render(me.activePokemon.card, { size: 'large' });
-        CardRenderer.updateDamage(el, me.activePokemon.damageCounters, me.activePokemon.card.hp);
-        container.appendChild(el);
-      }
-      return;
-    }
-
-    // 己方尚未放置
     board.innerHTML = `
       <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
         <div style="text-align:center;">
@@ -164,19 +139,48 @@ const BattleScreen = {
     if (confirmBtn) {
       confirmBtn.onclick = () => {
         if (!this.selectedCard) return;
+        this._setupPlacedCard = this.selectedCard; // 乐观记录
         WS.send('game_action', {
           action: 'setup_active',
           cardId: this.selectedCard.id,
           zone: 'active'
         });
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = '已确认，等待对方...';
-        this.selectedCard = null;
-        this.selectedCardEl = null;
-        // 立即在本端显示"已放置"状态（乐观更新）
-        document.getElementById('setup-hand')?.remove();
-        document.getElementById('opponent-setup-status')?.remove();
+        // 立即切换到等待界面
+        this._renderSetupWaiting();
       };
+    }
+  },
+
+  // ============================================================
+  // 设置阶段：等待对手界面（己方已放置）
+  // ============================================================
+  _renderSetupWaiting() {
+    const board = document.getElementById('board');
+    const opponent = GameState.opponent;
+    const oppoPlaced = opponent && opponent.activePokemon !== null;
+    const placedCard = GameState.me?.activePokemon?.card || this._setupPlacedCard;
+
+    document.getElementById('battle-turn-info').textContent = '设置阶段';
+
+    board.innerHTML = `
+      <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
+        <div style="text-align:center;">
+          <h3 style="margin-bottom:8px;">✅ 已放置出战宝可梦</h3>
+          <p style="color:var(--text-dim);">${oppoPlaced ? '双方已就绪，即将开始对战...' : '等待对手选择...'}</p>
+        </div>
+        <div id="setup-confirmed-pokemon" style="display:flex;justify-content:center;"></div>
+        <div id="opponent-setup-status" style="padding:8px 16px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:0.9rem;">
+          ${oppoPlaced ? '✅ 对手已放置出战宝可梦' : '⏳ 等待对手选择...'}
+        </div>
+      </div>
+    `;
+
+    if (placedCard) {
+      const container = document.getElementById('setup-confirmed-pokemon');
+      if (container) {
+        const el = CardRenderer.render(placedCard, { size: 'large' });
+        container.appendChild(el);
+      }
     }
   },
 

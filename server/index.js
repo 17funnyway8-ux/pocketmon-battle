@@ -9,6 +9,12 @@ const { PREBUILT_DECKS, isDeckValid } = require('./data/cards');
 
 const path = require('path');
 const fs = require('fs');
+
+// 版本号
+const APP_VERSION = (() => {
+  try { return fs.readFileSync(path.join(__dirname, '..', 'VERSION'), 'utf8').trim(); }
+  catch(e) { return 'dev'; }
+})();
 const roomManager = new RoomManager();
 const PORT = process.env.PORT || 3000;
 
@@ -342,6 +348,7 @@ function handleGameAction(session, payload) {
   // 设置阶段（放置初始宝可梦）
   if (gs.state.phase === GamePhase.SETUP) {
     if (payload.action === 'setup_active') {
+      console.log(`  [设置] ${session.name} 放置出战宝可梦: ${payload.cardId}`);
       const result = gs.confirmSetup(session.playerId, payload);
       if (result.error) {
         return send(session.ws, S2C.ACTION_DENIED, { action: 'setup_active', reason: result.error });
@@ -534,7 +541,7 @@ function getDeckList() {
 // ============================================================
 server.listen(PORT, () => {
   console.log(`\n╔══════════════════════════════╗`);
-  console.log(`║  PocketMon Battle Server    ║`);
+  console.log(`║  PocketMon Battle v${APP_VERSION.padEnd(5)}  ║`);
   console.log(`║  HTTP:   http://0.0.0.0:${PORT} ║`);
   console.log(`║  WS:     ws://0.0.0.0:${PORT}   ║`);
   console.log(`╚══════════════════════════════╝\n`);
