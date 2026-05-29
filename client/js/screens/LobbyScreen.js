@@ -81,14 +81,29 @@ const LobbyScreen = {
       const el = document.createElement('div');
       el.className = 'deck-card';
       el.dataset.deckId = deck.id;
-      el.innerHTML = `
-        <div class="deck-card__element">${deck.element === 'fire' ? '🔥' : deck.element === 'water' ? '💧' : deck.element === 'grass' ? '🌿' : deck.element === 'electric' ? '⚡' : deck.element === 'psychic' ? '🌀' : '💪'}</div>
-        <div class="deck-card__info">
-          <div class="deck-card__name">${deck.name}</div>
-          <div class="deck-card__desc">${deck.description || ''}</div>
-        </div>
-        <div class="deck-card__count">${deck.cardCount || 30}张</div>
-      `;
+      const elemDiv = document.createElement('div');
+      elemDiv.className = 'deck-card__element';
+      elemDiv.textContent = deck.element === 'fire' ? '🔥' : deck.element === 'water' ? '💧' : deck.element === 'grass' ? '🌿' : deck.element === 'electric' ? '⚡' : deck.element === 'psychic' ? '🌀' : '💪';
+      el.appendChild(elemDiv);
+
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'deck-card__info';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'deck-card__name';
+      nameDiv.textContent = deck.name;
+      infoDiv.appendChild(nameDiv);
+
+      const descDiv = document.createElement('div');
+      descDiv.className = 'deck-card__desc';
+      descDiv.textContent = deck.description || '';
+      infoDiv.appendChild(descDiv);
+      el.appendChild(infoDiv);
+
+      const countDiv = document.createElement('div');
+      countDiv.className = 'deck-card__count';
+      countDiv.textContent = (deck.cardCount || 30) + '张';
+      el.appendChild(countDiv);
       el.addEventListener('click', () => {
         document.querySelectorAll('.deck-card').forEach(c => c.classList.remove('selected'));
         el.classList.add('selected');
@@ -113,15 +128,16 @@ const LobbyScreen = {
       // 这里通过全局回调来触发
     };
 
-    // 选牌确认回调 - 在 app.js 中注册
-    window._onDeckConfirmed = () => {
+    // 选牌确认通过 EventBus 触发
+    const unsubDeck = EventBus.on('deck_confirmed', () => {
       WS.send('player_ready', {});
       const btn = document.getElementById('btn-ready');
       if (btn) {
         btn.disabled = true;
         btn.textContent = '✅ 已准备';
       }
-    };
+      unsubDeck(); // 只触发一次
+    });
 
     // 强制开始按钮
     document.getElementById('btn-force-start').onclick = () => {

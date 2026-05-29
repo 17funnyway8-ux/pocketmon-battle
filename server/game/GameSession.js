@@ -202,8 +202,20 @@ class GameSession {
             justPlayed: true
           };
           this._addLog('play_pokemon', { playerId, cardId: card.id, zone: 'active' });
+        } else if (validation.autoBench) {
+          // 自动找到第一个空后备位
+          const idx = player.bench.findIndex(b => b === null);
+          if (idx !== -1) {
+            player.bench[idx] = {
+              card: cloneCard(card),
+              attachedEnergy: [],
+              damageCounters: 0,
+              justPlayed: true
+            };
+            this._addLog('play_pokemon', { playerId, cardId: card.id, zone: 'bench', index: idx });
+          }
         } else {
-          // 放到后备区
+          // 指定位置（前端特定场景）
           const idx = player.bench.findIndex(b => b === null);
           if (idx !== -1) {
             player.bench[idx] = {

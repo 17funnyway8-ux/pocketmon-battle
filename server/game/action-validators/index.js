@@ -16,15 +16,11 @@ function validatePlayPokemon(gameState, playerId, payload) {
     return { valid: true, autoActive: true };
   }
 
-  // 已出战，放置到后备区
-  if (payload.zone === 'bench') {
-    const emptySlots = player.bench.filter(b => b === null).length;
-    if (emptySlots === 0) return { valid: false, reason: '后备区已满' };
-    if (card.subtype !== 'basic') return { valid: false, reason: '进化型宝可梦不能直接放到后备区' };
-    return { valid: true };
-  }
-
-  return { valid: false, reason: '出战区已有宝可梦' };
+  // 已出战，自动尝试后备区
+  const emptySlots = player.bench.filter(b => b === null).length;
+  if (emptySlots === 0) return { valid: false, reason: '后备区已满' };
+  if (card.subtype !== 'basic') return { valid: false, reason: '进化型宝可梦不能直接放到后备区' };
+  return { valid: true, autoBench: true };
 }
 
 function validateAttachEnergy(gameState, playerId, payload) {

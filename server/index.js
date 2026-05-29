@@ -128,8 +128,28 @@ const handlers = {
   [C2S.PING]: () => {}
 };
 
+// 速率限制
+const rateLimitMap = new Map();
+function checkRateLimit(session) {
+  const now = Date.now();
+  const record = rateLimitMap.get(session.playerId) || { count: 0, resetAt: now + 1000 };
+  if (now > record.resetAt) {
+    record.count = 1;
+    record.resetAt = now + 1000;
+  } else {
+    record.count++;
+  }
+  rateLimitMap.set(session.playerId, record);
+  if (record.count > 15) {
+    console.warn(`  速率限制: ${session.playerId} 消息过多`);
+    return false;
+  }
+  return true;
+}
+
 function handleMessage(session, msg) {
   const handler = handlers[msg.type];
+  if (msg.type !== 'ping' && !checkRateLimit(session)) return;
   if (!handler) {
     return send(session.ws, S2C.ERROR, { code: 'UNKNOWN_TYPE', message: `未知消息类型: ${msg.type}` });
   }
@@ -296,24 +316,14 @@ function handlePlayerReady(session) {
 
 function startGame(room) {
   console.log(`  [开始游戏] 房间: ${room.code}`);
-
   const session = new GameSession(room);
   room.gameSession = session;
   room.state = 'playing';
-
   session.initGame();
-
-  // 广播初始状态（设置阶段）
   for (const p of room.players) {
     const view = session.getViewForPlayer(p.id);
     if (p.ws && p.ws.readyState === 1) {
-      p.ws.send(JSON.stringify({
-        type: S2C.GAME_START,
-        payload: {
-          ...view,
-          isSetup: true
-        }
-      }));
+      send(p.ws, S2C.GAME_START, { ...view, isSetup: true });
     }
   }
 }
@@ -425,23 +435,57 @@ function handleForfeit(session) {
 // ============================================================
 // 断线处理
 // ============================================================
+const disconnectTimers = new Map();
+
 function handleDisconnect(session) {
+  console.log(`[-] 断开: ${session.playerId}`);
   const room = roomManager.getRoomByPlayer(session.playerId);
   if (!room) return;
 
   if (room.state === 'playing') {
-    // 游戏中断线，通知对手
+    // 设置 30 秒超时：不重连则自动投降
+    const timer = setTimeout(() => {
+      const r = roomManager.getRoomByPlayer(session.playerId);
+      if (!r || r.state !== 'playing') return;
+      if (r.gameSession && r.gameSession.state.phase !== 'game_over') {
+        const result = r.gameSession.forfeit(session.playerId);
+        // 通知还在线的玩家
+        for (const p of r.players) {
+          if (p.id !== session.playerId && p.ws && p.ws.readyState === 1) {
+            const view = r.gameSession.getViewForPlayer(p.id);
+            p.ws.send(JSON.stringify({
+              type: 'game_over',
+              payload: { winner: result.winner, winnerName: p.name, reason: '对方超时未重连', ...view }
+            }));
+          }
+        }
+        r.state = 'finished';
+        console.log(`  超时: ${session.playerId} 自动投降`);
+      }
+      disconnectTimers.delete(session.playerId);
+    }, 30000);
+    disconnectTimers.set(session.playerId, timer);
+
+    // 通知对手
     const other = room.getOtherPlayer(session.playerId);
     if (other && other.ws && other.ws.readyState === 1) {
       other.ws.send(JSON.stringify({
-        type: S2C.OPPONENT_DISCONNECTED,
-        payload: { timeout: CONFIG.RECONNECT_TIMEOUT }
+        type: 'opponent_disconnected',
+        payload: { timeout: 30 }
       }));
     }
   } else {
     // 大厅中断线，直接离开
-    handleLeaveRoom(session);
+    room.removePlayer(session.playerId);
+    room.broadcastExcept(session.playerId, {
+      type: 'player_left',
+      payload: { playerId: session.playerId }
+    });
+    if (room.players.length === 0) {
+      roomManager._destroyRoom(room.id);
+    }
   }
+  roomManager.playerRoomIndex.delete(session.playerId);
 }
 
 function handleReconnect(session, payload) {

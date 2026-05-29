@@ -74,10 +74,8 @@
       const myPlayer = payload.players.find(p => p.id === GameState.playerId);
       if (myPlayer && myPlayer.deckId) {
         // 如果还在等待选牌确认，触发 ready
-        if (typeof window._onDeckConfirmed === 'function' &&
-            document.getElementById('screen-deck-select').classList.contains('active')) {
-          window._onDeckConfirmed();
-          window._onDeckConfirmed = null; // 只触发一次
+        if (document.getElementById('screen-deck-select').classList.contains('active')) {
+          EventBus.emit('deck_confirmed');
         }
       }
     }
