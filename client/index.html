@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PocketMon Battle - 宝可梦卡牌对战</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/animation.css">
+</head>
+<body>
+
+  <!-- ==================== 大厅页面 ==================== -->
+  <div id="screen-lobby" class="screen active">
+    <div class="lobby-container">
+      <div class="lobby-header">
+        <h1 class="lobby-title">PocketMon Battle</h1>
+        <p class="lobby-subtitle">宝可梦卡牌对战</p>
+      </div>
+
+      <div class="lobby-tabs">
+        <button class="tab-btn active" data-tab="create">创建房间</button>
+        <button class="tab-btn" data-tab="join">加入房间</button>
+      </div>
+
+      <div class="tab-content" id="tab-create">
+        <div class="form-group">
+          <label>训练师名称</label>
+          <input type="text" id="input-name-create" class="input" placeholder="输入你的名字" maxlength="8">
+        </div>
+        <button id="btn-create-room" class="btn btn-primary btn-block">创建房间</button>
+      </div>
+
+      <div class="tab-content hidden" id="tab-join">
+        <div class="form-group">
+          <label>训练师名称</label>
+          <input type="text" id="input-name-join" class="input" placeholder="输入你的名字" maxlength="8">
+        </div>
+        <div class="form-group">
+          <label>房间码</label>
+          <div class="room-code-input-group">
+            <input type="text" id="input-room-code" class="input input-room-code"
+                   placeholder="例如 A7K2M9" maxlength="6" autocomplete="off">
+          </div>
+        </div>
+        <button id="btn-join-room" class="btn btn-secondary btn-block">加入房间</button>
+      </div>
+
+      <div id="lobby-status" class="lobby-status hidden"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 选牌组页面 ==================== -->
+  <div id="screen-deck-select" class="screen">
+    <div class="lobby-container">
+      <div class="lobby-header">
+        <h2 class="lobby-title">选择牌组</h2>
+        <p class="lobby-subtitle" id="deck-room-info">房间: ---</p>
+      </div>
+
+      <div id="deck-list" class="deck-list"></div>
+
+      <div class="deck-actions">
+        <button id="btn-ready" class="btn btn-primary btn-block" disabled>准备</button>
+      </div>
+
+      <div id="room-players" class="room-players"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 对战页面 ==================== -->
+  <div id="screen-battle" class="screen">
+    <div id="battle-container" class="battle-container">
+      <!-- 状态栏 -->
+      <div class="battle-header">
+        <div class="battle-info">
+          <span id="battle-turn-info">第 1 回合</span>
+          <span id="battle-phase-info">等待中</span>
+        </div>
+        <button id="btn-forfeit" class="btn btn-danger btn-sm">投降</button>
+      </div>
+
+      <!-- 对战棋盘 -->
+      <div id="board" class="board">
+        <!-- 对手区域 -->
+        <div class="board-section board-opponent">
+          <div class="player-info" id="opponent-info">
+            <span class="player-name" id="opponent-name">对手</span>
+            <span class="player-deck-size" id="opponent-deck-size">牌库: 0</span>
+            <span class="player-prize" id="opponent-prize">Prize: 3</span>
+          </div>
+
+          <div class="board-zone board-active" id="opponent-active">
+            <div class="zone-label"></div>
+          </div>
+
+          <div class="board-zone board-bench" id="opponent-bench">
+            <div class="zone-label">后备</div>
+          </div>
+
+          <div class="board-zone board-hand" id="opponent-hand">
+            <div class="zone-label">手牌</div>
+          </div>
+        </div>
+
+        <!-- 中间战斗区域 -->
+        <div class="board-middle">
+          <div class="battle-log" id="battle-log">
+            <div class="log-placeholder">等待游戏开始...</div>
+          </div>
+          <div class="battle-actions" id="battle-actions">
+            <button class="btn btn-action btn-end-turn" id="btn-end-turn" disabled>结束回合</button>
+            <div id="energy-indicator" class="energy-indicator"></div>
+          </div>
+        </div>
+
+        <!-- 己方区域 -->
+        <div class="board-section board-player">
+          <div class="player-info" id="player-info">
+            <span class="player-name" id="player-name">我</span>
+            <span class="player-deck-size" id="player-deck-size">牌库: 0</span>
+            <span class="player-prize" id="player-prize">Prize: 3</span>
+          </div>
+
+          <div class="board-zone board-hand" id="player-hand">
+            <div class="zone-label">手牌</div>
+          </div>
+
+          <div class="board-zone board-bench" id="player-bench">
+            <div class="zone-label">后备</div>
+          </div>
+
+          <div class="board-zone board-active" id="player-active">
+            <div class="zone-label"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 攻击选单弹窗 -->
+    <div id="attack-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>选择招式</h3>
+        <div id="attack-list" class="attack-list"></div>
+        <button class="btn btn-sm btn-cancel" id="btn-cancel-attack">取消</button>
+      </div>
+    </div>
+
+    <!-- 后备选择弹窗 -->
+    <div id="bench-select-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="bench-select-title">选择目标</h3>
+        <div id="bench-select-list" class="bench-select-list"></div>
+        <button class="btn btn-sm btn-cancel" id="btn-cancel-bench">取消</button>
+      </div>
+    </div>
+
+    <!-- 游戏结束弹窗 -->
+    <div id="gameover-modal" class="modal hidden">
+      <div class="modal-content gameover-content">
+        <h2 id="gameover-title">游戏结束</h2>
+        <p id="gameover-reason"></p>
+        <button class="btn btn-primary" id="btn-back-lobby">返回大厅</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 连接状态指示器 -->
+  <div id="connection-status" class="connection-status connected">已连接</div>
+
+  <script src="js/ws-client.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/rendering/CardRenderer.js"></script>
+  <script src="js/rendering/BoardRenderer.js"></script>
+  <script src="js/animation/AnimationManager.js"></script>
+  <script src="js/screens/LobbyScreen.js"></script>
+  <script src="js/screens/BattleScreen.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
