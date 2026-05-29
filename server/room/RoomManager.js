@@ -20,15 +20,28 @@ class RoomManager {
     const roomId = this.codeIndex.get(roomCode.toUpperCase());
     if (!roomId) throw new Error('ROOM_NOT_FOUND');
     const room = this.rooms.get(roomId);
+
+    // 游戏进行中 - 检查是否可重连
+    if (room.state === 'playing') {
+      // 找一个没有活跃 WebSocket 连接的玩家席位
+      const disconnectedSlot = room.players.find(p => !p.ws || p.ws.readyState !== 1);
+      if (disconnectedSlot) {
+        // 把新玩家绑定到这个空位上
+        this.playerRoomIndex.set(playerId, roomId);
+        // 返回特殊标记，让上层做重连处理
+        return { room, isReconnect: true, targetPlayerId: disconnectedSlot.id };
+      }
+      throw new Error('ROOM_FULL');
+    }
+
     if (room.state !== 'waiting') throw new Error('ROOM_IN_GAME');
     if (room.isFull()) throw new Error('ROOM_FULL');
     if (this.playerRoomIndex.has(playerId)) {
-      // 已经在某个房间，先离开
       this.leaveRoom(playerId);
     }
     room.addPlayer(playerId, playerName);
     this.playerRoomIndex.set(playerId, roomId);
-    return room;
+    return { room, isReconnect: false, targetPlayerId: null };
   }
 
   leaveRoom(playerId) {

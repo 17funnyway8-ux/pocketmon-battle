@@ -170,9 +170,35 @@ function handleJoinRoom(session, payload) {
   session.name = name;
 
   try {
-    const room = roomManager.joinRoom(roomCode, session.playerId, name);
+    const result = roomManager.joinRoom(roomCode, session.playerId, name);
+    const room = result.room;
 
-    // 绑定 WebSocket
+    if (result.isReconnect) {
+      // === 断线重连 ===
+      const targetId = result.targetPlayerId;
+      const player = room.getPlayer(targetId);
+      if (!player) throw new Error('RECONNECT_FAILED');
+
+      // 更新 WS 连接和信息
+      player.name = name;
+      player.ws = session.ws;
+      session.roomId = room.id;
+      session.playerId = targetId; // 使用原有 playerId 保证状态一致
+
+      // 发送当前游戏状态
+      if (room.gameSession) {
+        const view = room.gameSession.getViewForPlayer(targetId);
+        send(session.ws, S2C.GAME_STATE, { ...view, reconnected: true });
+        // 通知对手
+        room.broadcastExcept(targetId, {
+          type: S2C.OPPONENT_RECONNECTED, payload: {}
+        });
+      }
+      console.log(`  重连成功: ${roomCode} by ${name} (${targetId})`);
+      return;
+    }
+
+    // === 正常加入（等待中的房间） ===
     const player = room.getPlayer(session.playerId);
     if (player) player.ws = session.ws;
     session.roomId = room.id;
@@ -183,7 +209,6 @@ function handleJoinRoom(session, payload) {
       decks: getDeckList()
     });
 
-    // 通知房间内其他人
     room.broadcastExcept(session.playerId, {
       type: S2C.PLAYER_JOINED,
       payload: { player: { id: session.playerId, name, isReady: false, deckId: null } }
