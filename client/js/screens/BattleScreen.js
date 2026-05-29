@@ -5,7 +5,9 @@ const BattleScreen = {
   pendingAction: null,    // 待处理的 action 类型
   lastLogCount: 0,
   energyAttached: false,
-  _setupPlacedCard: null, // 本地已放置的宝可梦卡（乐观记录）
+  _setupPlacedCard: null,    // 本地已放置的宝可梦卡（乐观记录）
+  _hasConfirmedSetup: false, // 玩家是否已点击确认（不可逆）
+  _setupRendered: false,     // 选牌界面是否已渲染过
 
   init() {
     BoardRenderer.init();
@@ -20,6 +22,9 @@ const BattleScreen = {
     this.selectedCardEl = null;
     this.pendingAction = null;
     this.lastLogCount = 0;
+    this._setupPlacedCard = null;
+    this._hasConfirmedSetup = false;
+    this._setupRendered = false;
   },
 
   updateState(payload) {
@@ -40,24 +45,26 @@ const BattleScreen = {
       GameState.isSetup = true;
 
       const me = GameState.me;
-      const opponent = GameState.opponent;
-      const wasPlaced = !!this._setupPlacedCard;  // 本地是否已确认过
 
-      // 己方放置后：渲染等待界面（含对手状态）
-      if (me && me.activePokemon) {
-        this._setupPlacedCard = me.activePokemon.card;
+      // 优先级1：己方已确认（本地标志 或 服务器已记录了activePokemon）
+      if (this._hasConfirmedSetup || (me && me.activePokemon)) {
+        // 服务器侧记录了activePokemon → 同步到本地
+        if (me && me.activePokemon) {
+          this._setupPlacedCard = me.activePokemon.card;
+        }
         this._renderSetupWaiting();
         return;
       }
 
-      // 首次进入：渲染选牌界面
-      if (payload.isSetup || !wasPlaced) {
-        this._renderSetup();
+      // 优先级2：选牌界面已渲染过 → 只增量更新对手状态，不重建DOM
+      if (this._setupRendered) {
+        this._updateSetupOpponentStatus();
         return;
       }
 
-      // 还在选牌中：只更新对手状态指示器
-      this._updateSetupOpponentStatus();
+      // 优先级3：首次进入设置阶段 → 渲染选牌界面
+      this._setupRendered = true;
+      this._renderSetup();
       return;
     }
 
@@ -139,7 +146,8 @@ const BattleScreen = {
     if (confirmBtn) {
       confirmBtn.onclick = () => {
         if (!this.selectedCard) return;
-        this._setupPlacedCard = this.selectedCard; // 乐观记录
+        this._setupPlacedCard = this.selectedCard;      // 乐观记录
+        this._hasConfirmedSetup = true;                  // 不可逆标志
         WS.send('game_action', {
           action: 'setup_active',
           cardId: this.selectedCard.id,
@@ -162,6 +170,29 @@ const BattleScreen = {
 
     document.getElementById('battle-turn-info').textContent = '设置阶段';
 
+    // 如果已经在显示等待界面，只增量更新文字和卡牌（避免重建DOM）
+    const existingCard = document.getElementById('setup-confirmed-pokemon');
+    if (existingCard) {
+      // 更新对手状态文字
+      const statusEl = document.getElementById('opponent-setup-status');
+      if (statusEl) {
+        statusEl.textContent = oppoPlaced ? '✅ 对手已放置出战宝可梦' : '⏳ 等待对手选择...';
+      }
+      // 更新提示文字
+      const hintEl = board.querySelector('.board-section p');
+      if (hintEl) {
+        hintEl.style.color = 'var(--text-dim)';
+        hintEl.textContent = oppoPlaced ? '双方已就绪，即将开始对战...' : '等待对手选择...';
+      }
+      // 如果卡牌容器为空（首次乐观渲染时可能还没渲染卡），补渲染
+      if (existingCard.children.length === 0 && placedCard) {
+        const el = CardRenderer.render(placedCard, { size: 'large' });
+        existingCard.appendChild(el);
+      }
+      return;
+    }
+
+    // 首次渲染：重建DOM
     board.innerHTML = `
       <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
         <div style="text-align:center;">
