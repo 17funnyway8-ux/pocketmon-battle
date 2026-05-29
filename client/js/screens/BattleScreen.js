@@ -63,17 +63,41 @@ const BattleScreen = {
     document.getElementById('battle-turn-info').textContent = '设置阶段';
     document.getElementById('battle-phase-info').textContent = '请选择初始出战宝可梦';
 
+    // 如果已经放置了出战宝可梦（己方已确认），显示等待状态
+    if (me && me.activePokemon) {
+      board.innerHTML = `
+        <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+          <div style="text-align:center;">
+            <h3 style="margin-bottom:8px;">✅ 已放置出战宝可梦</h3>
+            <p style="color:var(--text-dim);font-size:0.9rem;">等待对方选择...</p>
+          </div>
+          <div id="setup-confirmed-pokemon" style="display:flex;justify-content:center;"></div>
+        </div>
+      `;
+      const container = document.getElementById('setup-confirmed-pokemon');
+      if (container) {
+        const el = CardRenderer.render(me.activePokemon.card, { size: 'large' });
+        CardRenderer.updateDamage(el, me.activePokemon.damageCounters, me.activePokemon.card.hp);
+        container.appendChild(el);
+      }
+      return;
+    }
+
     board.innerHTML = `
       <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
         <div style="text-align:center;">
           <h3 style="margin-bottom:8px;">选择你的初始宝可梦</h3>
           <p style="color:var(--text-dim);font-size:0.9rem;">从手牌中选择一只基础宝可梦作为出战</p>
         </div>
-        <div id="setup-hand" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <div id="setup-hand" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
         </div>
         <button id="btn-confirm-setup" class="btn btn-primary" disabled>确认出战</button>
       </div>
     `;
+
+    // 清空选中状态（防止上一次遗留）
+    this.selectedCard = null;
+    this.selectedCardEl = null;
 
     if (me && me.hand) {
       const setupHand = document.getElementById('setup-hand');
@@ -102,6 +126,10 @@ const BattleScreen = {
         zone: 'active'
       });
       document.getElementById('btn-confirm-setup').disabled = true;
+      document.getElementById('btn-confirm-setup').textContent = '已确认，等待对方...';
+      // 清除选中，防止后续 game_state 重新渲染后重复使用
+      this.selectedCard = null;
+      this.selectedCardEl = null;
     };
   },
 

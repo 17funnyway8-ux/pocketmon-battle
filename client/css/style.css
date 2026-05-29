@@ -20,8 +20,8 @@
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 4px 20px rgba(0,0,0,0.3);
-  --card-width: 100px;
-  --card-height: 140px;
+  --card-width: 130px;
+  --card-height: 185px;
 }
 
 html, body {
@@ -71,6 +71,13 @@ html, body {
   color: var(--text-dim);
   font-size: 0.95rem;
   margin-top: 4px;
+}
+.lobby-subtitle .version {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-left: 4px;
+  opacity: 0.8;
 }
 
 .lobby-tabs {
@@ -418,12 +425,12 @@ html, body {
 }
 
 .card--small {
-  width: 75px;
-  height: 105px;
+  width: 100px;
+  height: 140px;
 }
 .card--tiny {
-  width: 50px;
-  height: 70px;
+  width: 60px;
+  height: 85px;
 }
 
 /* 宝可梦卡 */
@@ -436,8 +443,8 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 6px;
-  font-size: 0.7rem;
+  padding: 6px 8px;
+  font-size: 0.8rem;
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .card__name {
@@ -446,21 +453,22 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
+  font-size: 0.85rem;
 }
 .card__hp {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--danger);
   margin-left: 4px;
 }
 .card__element-icon {
-  width: 16px; height: 16px;
+  width: 20px; height: 20px;
   border-radius: 50%;
   margin-left: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.6rem;
+  font-size: 0.8rem;
 }
 
 .card__image {
@@ -469,39 +477,40 @@ html, body {
   align-items: center;
   justify-content: center;
   background: rgba(0,0,0,0.2);
-  margin: 2px;
-  border-radius: 4px;
+  margin: 3px;
+  border-radius: 6px;
 }
 .card__image-placeholder {
-  font-size: 2rem;
+  font-size: 2.5rem;
   opacity: 0.3;
 }
 
 .card__attacks {
-  padding: 2px 4px;
+  padding: 4px 6px;
   flex-shrink: 0;
 }
 .attack {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.6rem;
-  padding: 1px 0;
+  font-size: 0.7rem;
+  padding: 2px 0;
 }
-.attack__cost { display: flex; gap: 1px; }
-.attack__name { flex: 1; }
+.attack__cost { display: flex; gap: 2px; }
+.attack__name { flex: 1; font-weight: 500; }
 .attack__damage {
   font-weight: 700;
   color: var(--danger);
-  min-width: 20px;
+  min-width: 24px;
   text-align: right;
+  font-size: 0.8rem;
 }
 
 .card__footer {
   display: flex;
   justify-content: space-between;
-  padding: 2px 6px;
-  font-size: 0.55rem;
+  padding: 3px 8px;
+  font-size: 0.65rem;
   color: var(--text-dim);
   border-top: 1px solid rgba(255,255,255,0.05);
 }
@@ -623,8 +632,8 @@ html, body {
 
 /* --- Slot & Pokemon zone extras --- */
 .slot-empty {
-  width: 75px;
-  height: 105px;
+  width: 100px;
+  height: 140px;
   border: 2px dashed #333;
   border-radius: var(--radius-sm);
   display: flex;
@@ -660,13 +669,14 @@ html, body {
 /* --- Responsive --- */
 @media (max-width: 600px) {
   :root {
-    --card-width: 75px;
-    --card-height: 105px;
+    --card-width: 95px;
+    --card-height: 135px;
   }
-  .card--small { width: 58px; height: 82px; }
-  .card--tiny { width: 40px; height: 56px; }
+  .card--small { width: 72px; height: 102px; }
+  .card--tiny { width: 45px; height: 64px; }
+  .slot-empty { width: 72px; height: 102px; }
   .lobby-title { font-size: 1.6rem; }
-  .card__header { font-size: 0.6rem; }
-  .attack { font-size: 0.5rem; }
+  .card__header { font-size: 0.7rem; }
+  .attack { font-size: 0.55rem; }
   .board { gap: 3px; }
 }
