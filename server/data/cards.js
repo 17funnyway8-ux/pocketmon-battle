@@ -334,6 +334,6 @@ function isDeckValid(deck) {
 
 module.exports = {
   POKEMON_CARDS, ENERGY_CARDS, TRAINER_CARDS, ALL_CARDS, CARD_MAP,
-  getCard, cloneCard, cloneCards,
+  getCard, getCards, cloneCard, cloneCards,
   PREBUILT_DECKS, isDeckValid
 };

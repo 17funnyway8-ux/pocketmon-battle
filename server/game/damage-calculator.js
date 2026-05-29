@@ -3,10 +3,10 @@ const { ELEMENT_CHART } = require('../../shared/constants');
 
 /**
  * 计算伤害
- * @param {Object} attackerCard - 攻击方宝可梦卡牌数据
- * @param {Object} defenderCard - 防御方宝可梦卡牌数据
- * @param {number} attackIndex - 招式索引
- * @returns {{ baseDamage, multiplier, finalDamage, weaknessHit, resistanceReduction }}
+ * 规则：
+ * - ELEMENT_CHART 处理属性相克（2x 或 0.5x）
+ * - 宝可梦卡上的 resistance 字段作为抗性减伤（-20）
+ * - weakness 字段仅作显示参考，不叠加于 ELEMENT_CHART
  */
 function calculateDamage(attackerCard, defenderCard, attackIndex) {
   const attack = attackerCard.attacks[attackIndex];
@@ -15,7 +15,7 @@ function calculateDamage(attackerCard, defenderCard, attackIndex) {
   let baseDamage = attack.damage;
   let multiplier = 1;
 
-  // 属性相克
+  // 属性相克（ELEMENT_CHART 已直接包含克制关系）
   const attackerElement = attackerCard.element;
   const defenderElement = defenderCard.element;
 
@@ -26,27 +26,21 @@ function calculateDamage(attackerCard, defenderCard, attackIndex) {
     }
   }
 
-  // 弱点: 防御方的 weakness 属性 = 攻击方属性 → x2
-  let weaknessMultiplier = 1;
-  if (defenderCard.weakness && defenderCard.weakness === attackerElement) {
-    weaknessMultiplier = 2;
-  }
-
-  // 抗性: 防御方的 resistance 属性 = 攻击方属性 → -20
+  // 抗性减伤：若防御方的 resistance 匹配攻击方属性
   let resistanceReduction = 0;
   if (defenderCard.resistance && defenderCard.resistance === attackerElement) {
     resistanceReduction = 20;
   }
 
   const finalDamage = Math.max(0,
-    Math.floor(baseDamage * multiplier * weaknessMultiplier) - resistanceReduction
+    Math.floor(baseDamage * multiplier) - resistanceReduction
   );
 
   return {
     baseDamage,
     multiplier,
-    weaknessMultiplier,
     resistanceReduction,
+    weaknessHit: multiplier > 1,
     finalDamage
   };
 }
