@@ -124,6 +124,9 @@ function validateUseAttack(gameState, playerId, payload) {
   if (gameState.turnPhase !== 'attack') return { valid: false, reason: '当前不是攻击阶段' };
   if (!player.activePokemon) return { valid: false, reason: '没有出战宝可梦' };
 
+  // ★ PTCG 规则：先手第一回合不能攻击
+  if (player.isFirstTurn) return { valid: false, reason: '先手第一回合不能攻击' };
+
   const { canPayEnergyCost } = require('../damage-calculator');
   const attack = player.activePokemon.card.attacks[payload.attackIndex];
   if (!attack) return { valid: false, reason: '招式不存在' };

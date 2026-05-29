@@ -711,3 +711,41 @@ html, body {
   .attack { font-size: 0.55rem; }
   .board { gap: 3px; }
 }
+
+/* ============================================================
+   拖放交互
+   ============================================================ */
+/* 可拖放卡牌 */
+.card--draggable {
+  cursor: grab;
+  touch-action: none;
+}
+.card--draggable:active {
+  cursor: grabbing;
+}
+
+/* 拖放中的幽灵卡牌 */
+.card--dragging {
+  cursor: grabbing !important;
+  transition: box-shadow 0.1s !important;
+}
+
+/* 拖放目标区域 — 默认暗淡提示 */
+.board-zone {
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+/* 拖放目标区域 — 有效高亮 */
+.drop-zone--active {
+  background-color: rgba(245, 197, 24, 0.15) !important;
+  box-shadow: 0 0 12px rgba(245, 197, 24, 0.4) !important;
+  outline: 2px dashed rgba(245, 197, 24, 0.6) !important;
+  outline-offset: -2px;
+}
+
+/* 宝可梦作为能量目标时的高亮 */
+.pokemon-slot.drop-zone--active {
+  outline-color: rgba(33, 150, 243, 0.6) !important;
+  background-color: rgba(33, 150, 243, 0.1) !important;
+  box-shadow: 0 0 14px rgba(33, 150, 243, 0.4) !important;
+}

@@ -53,6 +53,15 @@ const CardRenderer = {
       });
     }
 
+    // 拖放支持
+    if (options.draggable) {
+      el.classList.add('card--draggable');
+      el.addEventListener('pointerdown', (e) => {
+        // 长按/拖动手势触发拖放（避免短按干扰 click）
+        DragDropManager.startDrag(card, el, e);
+      });
+    }
+
     return el;
   },
 

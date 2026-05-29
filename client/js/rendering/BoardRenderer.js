@@ -17,9 +17,15 @@ const BoardRenderer = {
   },
 
   render(state) {
+    // 清除旧拖放目标区域
+    DragDropManager.clearZones();
+
     this.renderPlayerArea(state.me, state.isMyTurn);
     this.renderOpponentArea(state.opponent, state.opponentId);
     this.renderInfo(state);
+
+    // 注册新的拖放目标区域
+    this._registerDropZones(state.me, state.isMyTurn);
   },
 
   renderPlayerArea(me, isMyTurn) {
@@ -37,6 +43,7 @@ const BoardRenderer = {
         const el = CardRenderer.render(card, {
           size: 'small',
           interactive: true,
+          draggable: isMyTurn,   // ★ 己方回合可拖放
           onClick: (c, element) => this._onCardClick(c, element)
         });
         this.playerHandEl.appendChild(el);
@@ -178,5 +185,81 @@ const BoardRenderer = {
     // 交由 BattleScreen 处理
     const event = new CustomEvent('card-click', { detail: { card, element } });
     document.dispatchEvent(event);
+  },
+
+  // ============================================================
+  // 注册拖放目标区域
+  // ============================================================
+  _registerDropZones(me, isMyTurn) {
+    if (!me || !isMyTurn) return;
+
+    const allowed = DragDropManager._validActions || [];
+
+    // 出战区（空位 → 放置基础宝可梦）
+    if (allowed.includes('play_pokemon') && (!me.activePokemon || me.activePokemon.card.type === 'pokemon')) {
+      DragDropManager.registerZone('active', this.playerActiveEl, { action: 'play_pokemon_auto' });
+    }
+
+    // 后备区空位
+    if (allowed.includes('play_pokemon') && me.bench) {
+      me.bench.forEach((slot, i) => {
+        if (!slot) {
+          const emptyEl = this.playerBenchEl.querySelector(`[data-bench-index="${i}"]`) ||
+                          this.playerBenchEl.children[i + 1];
+          if (emptyEl) {
+            DragDropManager.registerZone('bench', emptyEl, { action: 'play_pokemon', benchIndex: i });
+          }
+        }
+      });
+    }
+
+    // 场上宝可梦 → 附着能量目标
+    if (allowed.includes('attach_energy')) {
+      // 出战宝可梦
+      if (me.activePokemon) {
+        const activeEl = this.playerActiveEl.querySelector('.pokemon-slot') || this.playerActiveEl;
+        DragDropManager.registerZone('pokemon_energy', activeEl, { target: 'active' });
+      }
+      // 后备宝可梦
+      me.bench && me.bench.forEach((slot, i) => {
+        if (slot) {
+          const el = this.playerBenchEl.querySelector(`.pokemon-slot:nth-child(${i + 2})`) ||
+                     this.playerBenchEl.children[i + 1];
+          if (el) {
+            DragDropManager.registerZone('pokemon_energy', el, { target: 'bench', benchIndex: i });
+          }
+        }
+      });
+    }
+
+    // 进化目标
+    if (allowed.includes('evolve')) {
+      if (me.activePokemon) {
+        const activeEl = this.playerActiveEl.querySelector('.pokemon-slot') || this.playerActiveEl;
+        DragDropManager.registerZone('evolve', activeEl, { target: 'active' });
+      }
+      me.bench && me.bench.forEach((slot, i) => {
+        if (slot) {
+          const el = this.playerBenchEl.querySelector(`.pokemon-slot:nth-child(${i + 2})`) ||
+                     this.playerBenchEl.children[i + 1];
+          if (el) {
+            DragDropManager.registerZone('evolve', el, { target: 'bench', benchIndex: i });
+          }
+        }
+      });
+    }
+
+    // 撤退目标（后备空位）
+    if (allowed.includes('retreat') && me.activePokemon) {
+      me.bench && me.bench.forEach((slot, i) => {
+        if (!slot) {
+          const emptyEl = this.playerBenchEl.querySelector(`[data-bench-index="${i}"]`) ||
+                          this.playerBenchEl.children[i + 1];
+          if (emptyEl) {
+            DragDropManager.registerZone('retreat', emptyEl, { benchIndex: i });
+          }
+        }
+      });
+    }
   }
 };

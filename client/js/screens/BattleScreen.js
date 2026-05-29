@@ -13,7 +13,14 @@ const BattleScreen = {
   init() {
     BoardRenderer.init();
     AnimationManager.init();
+    DragDropManager.init();
     this._bindEvents();
+
+    // 拖放完成回调
+    DragDropManager.onDrop = (card, zoneType, zoneData) => {
+      this._handleDrop(card, zoneType, zoneData);
+    };
+
     // 捕获原始棋盘模板（只做一次）
     const board = document.getElementById('board');
     if (board && !this._boardTemplate) {
@@ -52,6 +59,9 @@ const BattleScreen = {
       this._updateActions();
       this._updateLog(payload.turnLog);
       this._clearSelection();
+
+      // 首回合：己方回合（先手不可攻击，由服务端约束）
+      DragDropManager.enable(GameState.allowedActions);
       return;
     }
 
@@ -93,6 +103,13 @@ const BattleScreen = {
     this._updateActions();
     this._updateLog(payload.turnLog);
     this._clearSelection();
+
+    // 拖放：己方回合主阶段启用，否则禁用
+    if (GameState.isMyTurn && GameState.turnPhase === 'main') {
+      DragDropManager.enable(GameState.allowedActions);
+    } else {
+      DragDropManager.disable();
+    }
   },
 
   // 更新设置阶段的对手状态（只更新指示器文字，不重新渲染DOM）
@@ -599,6 +616,70 @@ const BattleScreen = {
       reason.textContent = payload.reason || '再接再厉！';
     }
 
+    DragDropManager.disable();
     modal.classList.remove('hidden');
+  },
+
+  // ============================================================
+  // 拖放结果处理
+  // ============================================================
+  _handleDrop(card, zoneType, zoneData) {
+    if (!GameState.isMyTurn) return;
+
+    switch (zoneType) {
+      case 'active': {
+        // 手牌基础宝可梦 → 空出战区
+        if (card.type === 'pokemon' && card.subtype === 'basic') {
+          WS.send('game_action', { action: 'play_pokemon', payload: { cardId: card.id, zone: 'active' } });
+        }
+        break;
+      }
+
+      case 'bench': {
+        // 手牌基础宝可梦 → 空后备区
+        if (card.type === 'pokemon' && card.subtype === 'basic') {
+          WS.send('game_action', {
+            action: 'play_pokemon',
+            payload: { cardId: card.id, zone: 'bench', benchIndex: zoneData.benchIndex }
+          });
+        }
+        break;
+      }
+
+      case 'pokemon_energy': {
+        // 能量卡 → 宝可梦身上
+        if (card.type === 'energy') {
+          const target = zoneData.target === 'active' ? 'active' : `bench_${zoneData.benchIndex}`;
+          WS.send('game_action', {
+            action: 'attach_energy',
+            payload: { cardId: card.id, target }
+          });
+        }
+        break;
+      }
+
+      case 'evolve': {
+        // 进化卡 → 对应基础宝可梦
+        if (card.type === 'pokemon' && card.subtype !== 'basic') {
+          const target = zoneData.target === 'active' ? 'active' : `bench_${zoneData.benchIndex}`;
+          WS.send('game_action', {
+            action: 'evolve',
+            payload: { cardId: card.id, target }
+          });
+        }
+        break;
+      }
+
+      case 'retreat': {
+        // 出战宝可梦 → 空后备区（撤退）
+        if (card.type === 'pokemon' && GameState.me && GameState.me.activePokemon &&
+            GameState.me.activePokemon.card.id === card.id) {
+          WS.send('game_action', { action: 'retreat', payload: { benchIndex: zoneData.benchIndex } });
+        }
+        break;
+      }
+    }
+
+    this._clearSelection();
   }
 };

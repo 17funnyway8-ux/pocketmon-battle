@@ -34,8 +34,8 @@ class GameSession {
     };
 
     // 初始化每个玩家的游戏状态
-    for (const p of players) {
-      // 查牌组定义，获取卡牌ID列表
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i];
       const deckDef = PREBUILT_DECKS.find(d => d.id === p.deckId);
       const deckCardIds = deckDef ? deckDef.cards : [];
       const deckCards = cloneCards(getCards(deckCardIds));
@@ -50,7 +50,8 @@ class GameSession {
         bench: [null, null, null],
         energyAttachedThisTurn: false,
         evolvedThisTurn: false,
-        attackedThisTurn: false
+        attackedThisTurn: false,
+        isFirstTurn: (i === 0)   // ★ PTCG：只有先手第一回合不可攻击
       };
     }
 
@@ -375,6 +376,7 @@ class GameSession {
           player.energyAttachedThisTurn = false;
           player.evolvedThisTurn = false;
           player.attackedThisTurn = false;
+          player.isFirstTurn = false;  // ★ PTCG：首回合结束后允许攻击
           player.activePokemon && (player.activePokemon.justPlayed = false);
 
           this._addLog('end_turn', { playerId, nextPlayer: this.state.currentPlayerId });
