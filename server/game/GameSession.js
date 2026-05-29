@@ -152,6 +152,11 @@ class GameSession {
       const player = this.state.players[playerId];
       if (!player) return { error: '玩家不存在' };
 
+      // 设置阶段动作：由 handleGameAction 直接处理，此处兜底
+      if (action === 'setup_active') {
+        return this.confirmSetup(playerId, payload);
+      }
+
       // 检查是否该玩家的回合
       if (this.state.currentPlayerId !== playerId) {
         return { error: '不是你的回合' };
