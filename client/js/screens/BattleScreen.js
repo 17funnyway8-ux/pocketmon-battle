@@ -24,33 +24,56 @@ const BattleScreen = {
   updateState(payload) {
     GameState.applyGameState(payload);
 
+    // 双方都确认后游戏正式开始
+    if (payload.gameStarted) {
+      GameState.isSetup = false;
+      BoardRenderer.render(GameState);
+      this._updateActions();
+      this._updateLog(payload.turnLog);
+      this._clearSelection();
+      return;
+    }
+
     // 设置阶段
     if (payload.isSetup || GameState.phase === 'setup') {
       GameState.isSetup = true;
-      this._renderSetup();
+      if (payload.isSetup) {
+        this._renderSetup();
+      } else {
+        this._updateSetupOpponentStatus();
+      }
       return;
     }
 
     GameState.isSetup = false;
-
-    // 渲染棋盘
     BoardRenderer.render(GameState);
-
-    // 播放动画
     if (payload.turnLog) {
       const newLogs = payload.turnLog.slice(this.lastLogCount);
       this.lastLogCount = payload.turnLog.length;
       AnimationManager.enqueue(newLogs);
     }
-
-    // 更新操作按钮
     this._updateActions();
-
-    // 更新日志
     this._updateLog(payload.turnLog);
-
-    // 清除选中状态
     this._clearSelection();
+  },
+
+  // 更新设置阶段的对手状态（只更新指示器，不破坏当前选牌状态）
+  _updateSetupOpponentStatus() {
+    const opponent = GameState.opponent;
+    const me = GameState.me;
+    if (!opponent || !me) return;
+
+    const oppoPlaced = opponent.activePokemon !== null;
+    const mePlaced = me.activePokemon !== null;
+
+    const statusEl = document.getElementById('opponent-setup-status');
+    if (statusEl) {
+      statusEl.textContent = oppoPlaced ? '✅ 对手已放置出战宝可梦' : '⏳ 等待对手选择...';
+    }
+
+    if (mePlaced && !document.getElementById('setup-confirmed-pokemon')) {
+      this._renderSetup();
+    }
   },
 
   // ============================================================
@@ -59,19 +82,32 @@ const BattleScreen = {
   _renderSetup() {
     const board = document.getElementById('board');
     const me = GameState.me;
+    const opponent = GameState.opponent;
+    const oppoPlaced = opponent && opponent.activePokemon !== null;
+    const mePlaced = me && me.activePokemon !== null;
 
     document.getElementById('battle-turn-info').textContent = '设置阶段';
-    document.getElementById('battle-phase-info').textContent = '请选择初始出战宝可梦';
 
-    // 如果已经放置了出战宝可梦（己方已确认），显示等待状态
-    if (me && me.activePokemon) {
+    if (mePlaced && oppoPlaced) {
+      // 双方都放好了，但游戏开始消息还在路上
+      board.innerHTML = `<div class="board-section" style="flex:1;display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;"><h3>🎮 即将开始...</h3></div>
+      </div>`;
+      return;
+    }
+
+    if (mePlaced) {
+      // 己方已放好，等待对手
       board.innerHTML = `
-        <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+        <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
           <div style="text-align:center;">
             <h3 style="margin-bottom:8px;">✅ 已放置出战宝可梦</h3>
-            <p style="color:var(--text-dim);font-size:0.9rem;">等待对方选择...</p>
+            <p style="color:var(--text-dim);">等待对手选择...</p>
           </div>
           <div id="setup-confirmed-pokemon" style="display:flex;justify-content:center;"></div>
+          <div class="opponent-status" style="padding:8px 16px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:0.9rem;">
+            ${oppoPlaced ? '✅ 对手已选择出战宝可梦' : '⏳ 对手尚未选择'}
+          </div>
         </div>
       `;
       const container = document.getElementById('setup-confirmed-pokemon');
@@ -83,19 +119,24 @@ const BattleScreen = {
       return;
     }
 
+    // 己方尚未放置
     board.innerHTML = `
-      <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+      <div class="board-section" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
         <div style="text-align:center;">
-          <h3 style="margin-bottom:8px;">选择你的初始宝可梦</h3>
-          <p style="color:var(--text-dim);font-size:0.9rem;">从手牌中选择一只基础宝可梦作为出战</p>
+          <h3 style="margin-bottom:8px;">选择你的初始出战宝可梦</h3>
+          <p style="color:var(--text-dim);font-size:0.9rem;">
+            ${oppoPlaced ? '✅ 对手已选择，请你也选一只' : '从手牌中选择一只基础宝可梦'}
+          </p>
         </div>
-        <div id="setup-hand" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <div id="opponent-setup-status" style="padding:6px 14px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:0.85rem;">
+          ${oppoPlaced ? '✅ 对手已放置出战宝可梦' : '⏳ 等待对手选择...'}
+        </div>
+        <div id="setup-hand" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;min-height:140px;">
         </div>
         <button id="btn-confirm-setup" class="btn btn-primary" disabled>确认出战</button>
       </div>
     `;
 
-    // 清空选中状态（防止上一次遗留）
     this.selectedCard = null;
     this.selectedCardEl = null;
 
@@ -110,7 +151,8 @@ const BattleScreen = {
               element.classList.add('selected');
               this.selectedCard = c;
               this.selectedCardEl = element;
-              document.getElementById('btn-confirm-setup').disabled = false;
+              const btn = document.getElementById('btn-confirm-setup');
+              if (btn) btn.disabled = false;
             }
           });
           setupHand.appendChild(el);
@@ -118,19 +160,24 @@ const BattleScreen = {
       });
     }
 
-    document.getElementById('btn-confirm-setup').onclick = () => {
-      if (!this.selectedCard) return;
-      WS.send('game_action', {
-        action: 'setup_active',
-        cardId: this.selectedCard.id,
-        zone: 'active'
-      });
-      document.getElementById('btn-confirm-setup').disabled = true;
-      document.getElementById('btn-confirm-setup').textContent = '已确认，等待对方...';
-      // 清除选中，防止后续 game_state 重新渲染后重复使用
-      this.selectedCard = null;
-      this.selectedCardEl = null;
-    };
+    const confirmBtn = document.getElementById('btn-confirm-setup');
+    if (confirmBtn) {
+      confirmBtn.onclick = () => {
+        if (!this.selectedCard) return;
+        WS.send('game_action', {
+          action: 'setup_active',
+          cardId: this.selectedCard.id,
+          zone: 'active'
+        });
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '已确认，等待对方...';
+        this.selectedCard = null;
+        this.selectedCardEl = null;
+        // 立即在本端显示"已放置"状态（乐观更新）
+        document.getElementById('setup-hand')?.remove();
+        document.getElementById('opponent-setup-status')?.remove();
+      };
+    }
   },
 
   // ============================================================
